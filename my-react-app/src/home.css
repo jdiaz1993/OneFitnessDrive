@@ -1,0 +1,243 @@
+/* ========== Global reset ========== */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  margin: 0;
+  overflow-x: clip;
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+/* ========== Fixed background helper ========== */
+.bg-fixed {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+}
+
+/* ========== Text on cards ========== */
+.card-title,
+.card-text,
+.card-subtitle {
+  color: #fff;
+  font-weight: bold;
+  text-shadow: 1px 1px 4px rgba(0, 0, 0, 0.8);
+}
+
+/* ========== Navbar (dark with white text) ========== */
+.custom-nav {
+  /* Controls */
+  --nav-h: 56px;
+  /* layout height cap for the bar */
+  --logo-scale: 1.5;
+  /* visual enlargement of the logo */
+
+  /* Remove default vertical padding so height stays fixed */
+  --bs-navbar-padding-y: 0;
+
+  /* Colors */
+  --bs-navbar-brand-color: #fff;
+  --bs-navbar-brand-hover-color: #fff;
+  --bs-navbar-color: #fff;
+  --bs-navbar-hover-color: #fff;
+  --bs-navbar-active-color: #fff;
+  --bs-navbar-disabled-color: rgba(255, 255, 255, .6);
+
+  min-height: var(--nav-h);
+}
+
+/* Keep nav items aligned and prevent the bar from expanding */
+.custom-nav.navbar,
+.custom-nav .navbar {
+  min-height: var(--nav-h);
+}
+
+/* Brand + links aligned within fixed bar (no extra vertical padding) */
+.custom-nav .navbar-brand,
+.custom-nav .nav-link {
+  height: var(--nav-h);
+  display: flex;
+  align-items: center;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+/* Toggler: let Bootstrap hide it ≥ lg; keep it on the right on mobile */
+.custom-nav .navbar-toggler {
+  height: var(--nav-h);
+  align-items: center;
+  padding-top: 0;
+  padding-bottom: 0;
+  margin-left: auto;
+  /* push to right on mobile */
+}
+
+/* Only show as flex below lg so it hides on desktop */
+@media (max-width: 991.98px) {
+  .custom-nav .navbar-toggler {
+    display: flex;
+  }
+}
+
+/* Make sure nothing clips the logo when scaled */
+.custom-nav,
+.custom-nav .navbar-brand {
+  overflow: visible;
+}
+
+/* LOGO: fill the bar for layout, then visually scale without changing layout */
+.custom-nav .navbar-brand>img {
+  display: inline-block;
+  /* ensures transform applies cleanly */
+  height: var(--nav-h);
+  /* base size = bar height */
+  width: auto;
+  max-height: none;
+  /* ignore any global caps */
+  transform: scale(var(--logo-scale));
+  /* visible enlargement */
+  transform-origin: left center;
+  /* grow outward from the left */
+  will-change: transform;
+  z-index: 1;
+  /* keep above background if needed */
+}
+
+/* If scale crowds the toggler on smaller screens, tame it a bit */
+@media (max-width: 991.98px) {
+  .custom-nav {
+    --nav-h: 52px;
+    --logo-scale: 1.2;
+  }
+}
+
+/* Hover styling */
+.custom-nav .nav-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+/* ========== Responsive type + spacing ========== */
+:root {
+  --h1-min: 1.6rem;
+  --h1-max: 2.6rem;
+  --p-min: 1rem;
+  --p-max: 1.125rem;
+}
+
+.resp-h1 {
+  font-size: clamp(var(--h1-min), 1rem + 2.4vw, var(--h1-max));
+  line-height: 1.2;
+}
+
+.resp-text {
+  font-size: clamp(var(--p-min), 0.9rem + 0.3vw, var(--p-max));
+  line-height: 1.6;
+}
+
+.py-section {
+  padding-top: clamp(16px, 3vw, 40px);
+  padding-bottom: clamp(16px, 3vw, 40px);
+}
+
+/* ========== Media safety ========== */
+img,
+video {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* ========== HOME page helpers ========== */
+.home .ratio,
+.home iframe {
+  width: 100%;
+}
+
+/* OPTION A: show entire photo (no crop) */
+.home .carousel-fit .carousel-item img {
+  width: 100%;
+  height: auto;
+  max-height: clamp(240px, 55vh, 640px);
+  object-fit: contain;
+  background-color: #000;
+}
+
+/* OPTION B: edge-to-edge crop (gentler) */
+.home .carousel-cover .carousel-item img {
+  width: 100%;
+  height: clamp(240px, 40vh, 520px);
+  object-fit: cover;
+  object-position: center;
+}
+
+/* Generic hero image helper (if you use standalone <img>) */
+.img-cover {
+  width: 100%;
+  height: clamp(220px, 40vh, 480px);
+  object-fit: cover;
+  border-radius: 10px;
+}
+
+/* 16:9 video wrapper */
+.video-container {
+  position: relative;
+  padding-bottom: 56.25%;
+  height: 0;
+  overflow: hidden;
+  max-width: 100%;
+  background: #000;
+}
+
+.video-container iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* ========== Home sections (no fixed 100% heights) ========== */
+.home-header,
+.home-middle,
+.home-third {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* colors (your originals) */
+.home-header {
+  background-color: #475;
+}
+
+/* shorthand valid (#447755) */
+.home-middle {
+  background-color: #1e3799;
+}
+
+.home-third {
+  background-color: #2d98da;
+}
+
+/* ========== (Optional) Safe full-bleed helper ==========
+:root { --sbw: calc(100vw - 100%); }  // scrollbar width
+.full-bleed {
+  width: calc(100vw - var(--sbw));
+  margin-left: calc(50% - 50vw + var(--sbw)/2);
+  margin-right: calc(50% - 50vw + var(--sbw)/2);
+}
+*/
+
+
+ 
