@@ -1,0 +1,26 @@
+﻿# React / Node
+node_modules/
+dist/
+build/
+.vite/
+.cache/
+.eslintcache
+
+# Python / Flask
+backend/.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Local DB & secrets
+backend/reviews.db
+.env
+*.env
+backend/.env
+my-react-app/.env
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

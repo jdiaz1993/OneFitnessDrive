@@ -1,0 +1,199 @@
+﻿import os
+import uuid
+from datetime import timedelta, datetime
+
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+from flask_jwt_extended import (
+    JWTManager, create_access_token, jwt_required, get_jwt
+)
+from sqlalchemy import create_engine, text
+
+app = Flask(__name__)
+
+# -------------------------------
+# Config (env-driven for production)
+# -------------------------------
+app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", "change-me-in-prod")
+app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(days=7)
+jwt = JWTManager(app)
+
+# CORS: allow specific origins in prod, * in dev
+cors_env = os.getenv("CORS_ORIGINS", "*")
+cors_origins = "*" if cors_env.strip() == "*" else [o.strip() for o in cors_env.split(",") if o.strip()]
+CORS(app, resources={r"/*": {"origins": cors_origins}})  # Bearer tokens => no cookies => ok
+
+# Database: Postgres via DATABASE_URL (preferred), fallback to SQLite
+DB_URL = os.getenv("DATABASE_URL", "sqlite:///reviews.db")
+# Heroku/Neon old scheme fix
+if DB_URL.startswith("postgres://"):
+    DB_URL = DB_URL.replace("postgres://", "postgresql+psycopg2://", 1)
+
+engine = create_engine(DB_URL, pool_pre_ping=True, future=True)
+
+# -------------------------------
+# Bootstrap DB
+# -------------------------------
+with engine.begin() as con:
+    con.execute(text("""
+        CREATE TABLE IF NOT EXISTS reviews (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          rating INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
+          text TEXT NOT NULL,
+          created_at TEXT NOT NULL
+        )
+    """))
+
+# Add owner_cid column + helpful indexes if missing
+with engine.begin() as con:
+    cols = con.execute(text("PRAGMA table_info(reviews)")) if DB_URL.startswith("sqlite") \
+        else con.execute(text("""
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name='reviews'
+        """))
+    col_names = {c[1] if DB_URL.startswith("sqlite") else c[0] for c in cols}
+    if "owner_cid" not in col_names:
+        # SQLite and Postgres both accept this syntax
+        con.execute(text("ALTER TABLE reviews ADD COLUMN owner_cid TEXT"))
+    con.execute(text("CREATE INDEX IF NOT EXISTS idx_reviews_created_at ON reviews(created_at)"))
+    # Optional owner index (SQLite won't error if already exists)
+    con.execute(text("CREATE INDEX IF NOT EXISTS idx_reviews_owner ON reviews(owner_cid)"))
+
+# -------------------------------
+# Access codes (env-set in prod)
+# -------------------------------
+def codes_from_env(key, defaults):
+    raw = os.getenv(key)
+    return {x.strip() for x in raw.split(",")} if raw else set(defaults)
+
+VALID_CODES = codes_from_env("REVIEWER_CODES", {"ODF-2025", "CLIENT-GOLD"})
+ADMIN_CODES = codes_from_env("ADMIN_CODES", {"ODF-ADMIN-2025"})
+
+# -------------------------------
+# Routes
+# -------------------------------
+@app.get("/")
+def root():
+    return jsonify({
+        "ok": True,
+        "db": "postgres" if "postgresql" in DB_URL else "sqlite",
+        "endpoints": {
+            "GET /reviews": "List reviews (JWT optional) with can_delete",
+            "POST /auth/login": "Body: {code, client_id?} -> JWT + client_id (admin or reviewer)",
+            "POST /reviews": "Create review (JWT required)",
+            "DELETE /reviews/<id>": "Delete own review or admin"
+        }
+    })
+
+# Auth: code -> JWT (role + stable client id)
+@app.post("/auth/login")
+def login():
+    """
+    Body: { "code": "<your-code>", "client_id": "<optional existing cid>" }
+    Returns: { success, token, client_id, role }
+    """
+    data = request.get_json(silent=True) or {}
+    code = (data.get("code") or "").strip()
+
+    role = "admin" if code in ADMIN_CODES else ("reviewer" if code in VALID_CODES else None)
+    if not role:
+        return jsonify(success=False, message="Invalid access code"), 401
+
+    client_id = (data.get("client_id") or "").strip() or str(uuid.uuid4())
+    token = create_access_token(
+        identity="trusted_client",
+        additional_claims={"role": role, "cid": client_id}
+    )
+    return jsonify(success=True, token=token, client_id=client_id, role=role)
+
+# List: optional JWT so we can compute can_delete
+@app.get("/reviews")
+@jwt_required(optional=True)
+def list_reviews():
+    claims = get_jwt() or {}
+    cid = claims.get("cid")
+    role = claims.get("role")
+
+    with engine.begin() as con:
+        rows = con.execute(text("""
+            SELECT id, name, rating, text, created_at, owner_cid
+            FROM reviews
+            ORDER BY created_at DESC
+        """)).mappings().all()
+
+    out = []
+    for r in rows:
+        can = bool(role == "admin" or (cid and r["owner_cid"] and cid == r["owner_cid"]))
+        d = dict(r)
+        d["can_delete"] = can
+        out.append(d)
+    return jsonify(out)
+
+# Create: reviewer/admin; store owner_cid from token
+@app.post("/reviews")
+@jwt_required()
+def create_review():
+    claims = get_jwt()
+    if claims.get("role") not in ("reviewer", "admin"):
+        return jsonify(message="Not allowed"), 403
+
+    data = request.get_json(silent=True) or {}
+    name = (data.get("name") or "Anonymous").strip() or "Anonymous"
+    text_body = (data.get("text") or "").strip()
+    try:
+        rating = int(data.get("rating") or 0)
+    except ValueError:
+        rating = 0
+
+    if not text_body or not (1 <= rating <= 5):
+        return jsonify(message="Invalid payload"), 400
+
+    rid = str(uuid.uuid4())
+    created_at = datetime.utcnow().isoformat() + "Z"
+    owner_cid = claims.get("cid")
+
+    with engine.begin() as con:
+        con.execute(
+            text("""INSERT INTO reviews (id, name, rating, text, created_at, owner_cid)
+                    VALUES (:id, :n, :r, :t, :c, :o)"""),
+            {"id": rid, "n": name, "r": rating, "t": text_body, "c": created_at, "o": owner_cid}
+        )
+
+    return jsonify({
+        "id": rid,
+        "name": name,
+        "rating": rating,
+        "text": text_body,
+        "created_at": created_at,
+        "owner_cid": owner_cid,
+        "can_delete": True
+    }), 201
+
+# Delete: admin OR owner
+@app.delete("/reviews/<rid>")
+@jwt_required()
+def delete_review(rid):
+    claims = get_jwt() or {}
+    cid = claims.get("cid")
+    role = claims.get("role")
+
+    with engine.begin() as con:
+        row = con.execute(text("SELECT owner_cid FROM reviews WHERE id = :id"), {"id": rid}).first()
+        if not row:
+            return jsonify(message="Not found"), 404
+
+        owner = row.owner_cid
+        allowed = (role == "admin") or (cid and owner and cid == owner)
+        if not allowed:
+            return jsonify(message="Not allowed"), 403
+
+        con.execute(text("DELETE FROM reviews WHERE id = :id"), {"id": rid})
+
+    return jsonify(success=True)
+
+# -------------------------------
+# Local run (prod will use gunicorn)
+# -------------------------------
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5001)), debug=bool(os.getenv("DEBUG", "")))
