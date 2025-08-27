@@ -1,10 +1,6 @@
-{
-  "rewrites": [
-    { "source": "/api",        "destination": "https://<YOUR-BACKEND>.vercel.app/api/index" },
-    { "source": "/api/:path*", "destination": "https://<YOUR-BACKEND>.vercel.app/api/index/:path*" }
-  ],
+﻿{
   "routes": [
-    { "handle": "filesystem" },
-    { "src": "/(.*)", "dest": "/index.html" }
+    { "src": "/api", "dest": "api/index.py" },
+    { "src": "/api/(.*)", "dest": "api/index.py" }
   ]
 }
