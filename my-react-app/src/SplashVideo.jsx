@@ -28,18 +28,10 @@ export default function SplashVideo() {
   return (
     <div style={{ height:"100vh", width:"100vw", overflow:"hidden",
                   display:"flex", alignItems:"center", justifyContent:"center" }}>
-      <video
-        ref={videoRef}
-        autoPlay
-        muted
-        playsInline
-        preload="auto"
-        controls={false}
-        onError={(e) => console.error("Video error:", e.currentTarget.error)}
-        style={{ width:"100%", height:"70%", objectFit:"cover" }}
-      >
-        <source src={introVideo} type="video/mp4" /> {/* <-- hashed URL at build */}
-      </video>
+<video ref={videoRef} autoPlay muted playsInline preload="auto"
+       style={{ width:"100%", height:"100%", objectFit:"cover" }}>
+  <source src={introVideo} type="video/mp4" />   {/* <-- use the import */}
+</video>
     </div>
   );
 }
