@@ -24,8 +24,12 @@ cors_origins = "*" if cors_env.strip() == "*" else [o.strip() for o in cors_env.
 CORS(app, resources={r"/*": {"origins": cors_origins}})  # Bearer tokens => no cookies => ok
 
 # Database: Postgres via DATABASE_URL (preferred), fallback to SQLite
-DB_URL = os.getenv("DATABASE_URL", "sqlite:///reviews.db")
-# Heroku/Neon old scheme fix
+DB_URL = (
+    os.getenv("DATABASE_URL")
+    or os.getenv("POSTGRES_URL_NON_POOLING")
+    or os.getenv("POSTGRES_URL")
+    or "sqlite:////tmp/reviews.db"  # safe, non-persistent fallback in serverless
+)
 if DB_URL.startswith("postgres://"):
     DB_URL = DB_URL.replace("postgres://", "postgresql+psycopg2://", 1)
 
