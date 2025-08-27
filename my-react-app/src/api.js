@@ -1,4 +1,4 @@
-const API_BASE = import.meta?.env?.VITE_API_BASE || "http://localhost:5001";
+const API_BASE = process.env.REACT_APP_API_BASE || '/api';
 
 export const getToken = () => localStorage.getItem("reviews:jwt") || "";
 export const setToken = (t) => (t ? localStorage.setItem("reviews:jwt", t) : localStorage.removeItem("reviews:jwt"));
