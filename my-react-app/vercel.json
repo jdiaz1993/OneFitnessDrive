@@ -1,9 +1,8 @@
 {
-  "rewrites": [
-    { "source": "/api", "destination": "https://YOUR-BACKEND.vercel.app/api" },
-    { "source": "/api/:match*", "destination": "https://YOUR-BACKEND.vercel.app/api/:match*" }
-  ],
   "routes": [
+    { "src": "^/api$", "dest": "https://YOUR-BACKEND.vercel.app/api" },
+    { "src": "^/api/(.*)$", "dest": "https://YOUR-BACKEND.vercel.app/api/$1" },
+
     { "handle": "filesystem" },
     { "src": "/(.*)", "dest": "/index.html" }
   ]
