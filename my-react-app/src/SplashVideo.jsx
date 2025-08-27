@@ -29,7 +29,7 @@ export default function SplashVideo() {
     <div style={{ height:"100vh", width:"100vw", overflow:"hidden",
                   display:"flex", alignItems:"center", justifyContent:"center" }}>
 <video ref={videoRef} autoPlay muted playsInline preload="auto"
-       style={{ width:"100%", height:"100%", objectFit:"cover" }}>
+       style={{ width:"100%", height:"70%", objectFit:"cover" }}>
   <source src={introVideo} type="video/mp4" />   {/* <-- use the import */}
 </video>
     </div>
