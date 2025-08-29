@@ -1,7 +1,10 @@
 {
-  "name": "onefitness-backend",
-  "private": true,
-  "type": "module",
-  "engines": { "node": ">=18" },
-  "dependencies": {}
+  "version": 2,
+  "functions": {
+    "api/index.py": { "runtime": "python3.12" }
+  },
+  "routes": [
+    { "src": "/api/?",   "dest": "api/index.py" },
+    { "src": "/api/(.*)","dest": "api/index.py" }
+  ]
 }
