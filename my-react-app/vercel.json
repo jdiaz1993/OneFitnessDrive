@@ -2,11 +2,11 @@
   "rewrites": [
     {
       "source": "/api",
-      "destination": "https://one-fitness-drive-cru6-2h9q1a6q5-joseph-diazs-projects-a5260473.vercel.app/api"
+      "destination": "https://https://one-fitness-drive-cru6.vercel.app//api"
     },
     {
       "source": "/api/:path*",
-      "destination": "https://one-fitness-drive-cru6-2h9q1a6q5-joseph-diazs-projects-a5260473.vercel.app/api/:path*"
+      "destination": "https://https://one-fitness-drive-cru6.vercel.app//api/:path*"
     }
   ],
   "routes": [
