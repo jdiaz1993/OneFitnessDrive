@@ -25,13 +25,16 @@ CORS(app, resources={r"/*": {"origins": cors_origins}})  # Bearer tokens => no c
 
 # Database: Postgres via DATABASE_URL (preferred), fallback to SQLite
 DB_URL = (
-    os.getenv("DATABASE_URL")
-    or os.getenv("POSTGRES_URL_NON_POOLING")
-    or os.getenv("POSTGRES_URL")
-    or "sqlite:////tmp/reviews.db"  # safe, non-persistent fallback in serverless
+   os.getenv("DATABASE_URL")
+    or os.getenv("POSTGRES_URL")             # Vercel Postgres (pooled)
+    or os.getenv("POSTGRES_PRISMA_URL")      # sometimes provided
+    or os.getenv("POSTGRES_URL_NON_POOLING") # non-pooled
+    or "sqlite:///reviews.db"
 )
 if DB_URL.startswith("postgres://"):
     DB_URL = DB_URL.replace("postgres://", "postgresql+psycopg2://", 1)
+elif DB_URL.startswith("postgresql://") and "psycopg2" not in DB_URL:
+    DB_URL = DB_URL.replace("postgresql://", "postgresql+psycopg2://", 1)
 
 engine = create_engine(DB_URL, pool_pre_ping=True, future=True)
 
