@@ -1,13 +1,7 @@
 ﻿{
   "rewrites": [
-    {
-      "source": "/api",
-      "destination": "https://https://one-fitness-drive-cru6.vercel.app//api"
-    },
-    {
-      "source": "/api/:path*",
-      "destination": "https://https://one-fitness-drive-cru6.vercel.app//api/:path*"
-    }
+    { "source": "/api", "destination": "https://one-fitness-drive-cru6.vercel.app/api/index" },
+    { "source": "/api/:path*", "destination": "https://one-fitness-drive-cru6.vercel.app/api/index/:path*" }
   ],
   "routes": [
     { "handle": "filesystem" },
