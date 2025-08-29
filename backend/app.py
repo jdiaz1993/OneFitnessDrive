@@ -23,7 +23,11 @@ cors_env = os.getenv("CORS_ORIGINS", "*")
 cors_origins = "*" if cors_env.strip() == "*" else [o.strip() for o in cors_env.split(",") if o.strip()]
 CORS(app, resources={r"/*": {"origins": cors_origins}})
 
-DB_URL = os.getenv("DATABASE_URL", "sqlite:///reviews.db")
+DB_URL = (
+    os.getenv("DATABASE_URL")
+    or os.getenv("POSTGRES_URL")
+    or "sqlite:///reviews.db"
+)
 if DB_URL.startswith("postgres://"):
     DB_URL = DB_URL.replace("postgres://", "postgresql+psycopg2://", 1)
 engine = create_engine(DB_URL, pool_pre_ping=True, future=True)
