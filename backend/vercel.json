@@ -3,5 +3,8 @@
   "functions": {
     "api/index.py": { "runtime": "python3.12" },
     "api/[...path].py": { "runtime": "python3.12" }
-  }
+  },
+  "routes" : [
+    {"src": "/(.*)", "dest": "/api/[...path].py"}
+  ]
 }
