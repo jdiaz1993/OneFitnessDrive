@@ -2,6 +2,6 @@
 flask-cors==4.0.1
 flask-jwt-extended==4.6.0
 sqlalchemy==2.0.32
-greenlet==3.0.3           # <-- fixes your build error with Python 3.12
-psycopg[binary]==3.2.1    # psycopg v3 (recommended for Neon)
+greenlet==3.0.3
+psycopg[binary]==3.2.9  
 gunicorn==22.0.0

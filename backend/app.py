@@ -38,11 +38,17 @@ def _options(_p):
 
 # --- Database (Neon) ---
 DB_URL = os.getenv("DATABASE_URL", "")
+
+# Use psycopg v3 driver with SQLAlchemy
 if DB_URL.startswith("postgres://"):
-    DB_URL = DB_URL.replace("postgres://", "postgresql+psycopg2://", 1)
-# ensure SSL for Neon
+    DB_URL = DB_URL.replace("postgres://", "postgresql+psycopg://", 1)
+elif DB_URL.startswith("postgresql://"):
+    DB_URL = DB_URL.replace("postgresql://", "postgresql+psycopg://", 1)
+
+# Ensure TLS for Neon (just in case)
 if DB_URL and "sslmode=" not in DB_URL:
     DB_URL += ("&" if "?" in DB_URL else "?") + "sslmode=require"
+
 
 engine = create_engine(DB_URL, pool_pre_ping=True, future=True)
 
