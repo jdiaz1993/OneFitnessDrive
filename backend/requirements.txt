@@ -3,5 +3,5 @@ flask-cors==4.0.1
 flask-jwt-extended==4.6.0
 sqlalchemy==2.0.32
 greenlet==3.0.3
-psycopg[binary]==3.2.9  
+psycopg[binary]==3.2.9
 gunicorn==22.0.0
