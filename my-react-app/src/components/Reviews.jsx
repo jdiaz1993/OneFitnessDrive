@@ -19,6 +19,7 @@ export default function Reviews() {
 
   // form state
   const [name, setName] = useState("");
+  const [age, setAge] = useState("");               // ← NEW: Age
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState("");
   const [website, setWebsite] = useState(""); // honeypot
@@ -69,11 +70,15 @@ export default function Reviews() {
 
   const submit = async () => {
     const text = comment.trim();
-    const person = name.trim() || "Anonymous";
+    const person = name.trim(); // ← REQUIRED: no "Anonymous" fallback
     if (!text) return;
 
     if (!authed) {
       setError("Posting is restricted. Enter the access code to unlock.");
+      return;
+    }
+    if (!person) {
+      setError("Please enter your name to post a review.");
       return;
     }
     if (website) {
@@ -82,9 +87,18 @@ export default function Reviews() {
     }
 
     try {
-      const row = await postReview({ name: person, rating: Number(rating), text });
+      const payload = {
+        name: person,
+        rating: Number(rating),
+        text,
+        // Only send age if valid; backend can ignore if not supported
+        ...(age !== "" && Number.isFinite(Number(age)) ? { age: Number(age) } : {}),
+      };
+
+      const row = await postReview(payload);
       setReviews((prev) => [normalize(row), ...prev]);
       setName("");
+      setAge("");                 // ← reset age
       setRating(5);
       setComment("");
       setError("");
@@ -106,6 +120,9 @@ export default function Reviews() {
       setError(e.message || "Delete failed");
     }
   };
+
+  // helper for disabling submit (name and comment required; rating already set)
+  const canSubmit = authed && name.trim() && comment.trim();
 
   return (
     <div>
@@ -165,14 +182,34 @@ export default function Reviews() {
               <>
                 <div className="row g-3">
                   <div className="col-md-6">
-                    <label className="form-label">Name</label>
+                    <label className="form-label">Name <span className="text-danger">*</span></label>
                     <input
-                      className="form-control"
-                      placeholder="Your name (optional)"
+                      className={`form-control ${!name.trim() && error ? "is-invalid" : ""}`}
+                      placeholder="Your full name"
                       value={name}
-                      onChange={(e) => setName(e.target.value)}
+                      onChange={(e) => {
+                        setName(e.target.value);
+                        if (error) setError("");
+                      }}
+                      required
                     />
                   </div>
+
+                  {/* NEW: Age field (optional). Make it required by adding `required` and disabling submit accordingly */}
+                  <div className="col-md-6">
+                    <label className="form-label">Age</label>
+                    <input
+                      type="number"
+                      className="form-control"
+                      placeholder="e.g., 28"
+                      min={10}
+                      max={100}
+                      value={age}
+                      onChange={(e) => setAge(e.target.value)}
+                      inputMode="numeric"
+                    />
+                  </div>
+
                   <div className="col-md-6">
                     <label className="form-label d-block">Rating</label>
                     <div className="d-flex align-items-center gap-2">
@@ -180,8 +217,9 @@ export default function Reviews() {
                       <small className="text-muted">{rating}/5</small>
                     </div>
                   </div>
+
                   <div className="col-12">
-                    <label className="form-label">Review</label>
+                    <label className="form-label">Review <span className="text-danger">*</span></label>
                     <textarea
                       className="form-control"
                       rows={3}
@@ -189,6 +227,7 @@ export default function Reviews() {
                       value={comment}
                       onChange={(e) => setComment(e.target.value)}
                       onKeyDown={onKeyDown}
+                      required
                     />
                   </div>
 
@@ -207,7 +246,8 @@ export default function Reviews() {
                       type="button"
                       className="btn btn-primary"
                       onClick={submit}
-                      disabled={!comment.trim()}
+                      disabled={!canSubmit}
+                      title={!authed ? "Unlock posting first" : (!name.trim() ? "Name is required" : (!comment.trim() ? "Review is required" : ""))}
                     >
                       Submit Review
                     </button>
@@ -216,8 +256,10 @@ export default function Reviews() {
                       className="btn btn-outline-secondary"
                       onClick={() => {
                         setName("");
+                        setAge("");
                         setRating(5);
                         setComment("");
+                        setError("");
                       }}
                     >
                       Clear

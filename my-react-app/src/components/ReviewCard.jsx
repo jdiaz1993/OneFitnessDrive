@@ -22,7 +22,12 @@ export default function ReviewCard({ review, onDelete }) {
               {review.name?.[0]?.toUpperCase() || "U"}
             </div>
             <div>
-              <div className="fw-semibold">{review.name}</div>
+              <div className="fw-semibold">
+                {review.name}
+                {review.age ? (
+                  <span className="text-muted">, {review.age}</span>
+                ) : null}
+              </div>
               <div className="small text-muted">
                 {new Date(review.created_at).toLocaleDateString()}
               </div>
@@ -30,7 +35,7 @@ export default function ReviewCard({ review, onDelete }) {
           </div>
 
           <StarRating value={review.rating} readOnly size="1.1rem" />
-          <p className="mt-2 mb-0 flex-grow-1 ">{review.text}</p>
+          <p className="mt-2 mb-0 flex-grow-1">{review.text}</p>
         </div>
       </div>
     </div>

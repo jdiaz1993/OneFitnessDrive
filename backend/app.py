@@ -3,31 +3,31 @@ from datetime import timedelta, datetime
 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt
+from flask_jwt_extended import (
+    JWTManager, create_access_token, jwt_required, get_jwt
+)
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import SQLAlchemyError
 
 app = Flask(__name__)
 
 # --- JWT ---
-app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", "change-me")  # set in Render
+app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", "change-me")
 app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(days=7)
 jwt = JWTManager(app)
 
 # --- CORS (allow your site + dev; echo Origin; allow credentials) ---
 def _allowed_from_env():
-    raw = os.getenv("CORS_ORIGINS", "")  # comma-separated, optional
+    raw = os.getenv("CORS_ORIGINS", "")
     items = {o.strip() for o in raw.split(",") if o.strip()}
     items.add("http://localhost:5173")
     items.add("https://www.onedrivefitness.com")
     items.add("https://onedrivefitness.com")
-    # optional convenience
     if os.getenv("FRONTEND_ORIGIN"):
         items.add(os.getenv("FRONTEND_ORIGIN").strip())
     return items
 
 ALLOWED_ORIGINS = _allowed_from_env()
-
 CORS(app, resources={r"/api/*": {"origins": list(ALLOWED_ORIGINS)}}, supports_credentials=True)
 
 @app.after_request
@@ -45,7 +45,7 @@ def add_cors_headers(resp):
 def any_options(_):
     return ("", 204)
 
-# --- Database (Neon) ---
+# --- Database (Neon/Postgres or SQLite fallback) ---
 DB_URL = os.getenv("DATABASE_URL", "")
 if DB_URL.startswith("postgres://"):
     DB_URL = DB_URL.replace("postgres://", "postgresql+psycopg://", 1)
@@ -58,10 +58,12 @@ engine = create_engine(DB_URL or "sqlite:///reviews.db", pool_pre_ping=True, fut
 
 def ensure_schema():
     with engine.begin() as con:
+        # Create table (now includes age)
         con.execute(text("""
             CREATE TABLE IF NOT EXISTS reviews (
               id TEXT PRIMARY KEY,
               name TEXT NOT NULL,
+              age INTEGER,
               rating INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
               text TEXT NOT NULL,
               created_at TEXT NOT NULL,
@@ -70,6 +72,11 @@ def ensure_schema():
         """))
         con.execute(text("CREATE INDEX IF NOT EXISTS idx_reviews_created_at ON reviews(created_at)"))
         con.execute(text("CREATE INDEX IF NOT EXISTS idx_reviews_owner ON reviews(owner_cid)"))
+        # Try to add age if table already existed
+        try:
+            con.execute(text("ALTER TABLE reviews ADD COLUMN age INTEGER"))
+        except SQLAlchemyError:
+            pass  # column already exists or not needed
 
 # Try on boot, but don't crash if DB is briefly unavailable
 try:
@@ -89,8 +96,12 @@ def health():
         return jsonify(ok=False, error=str(e)), 503
 
 # Access codes (can be env-driven)
-VALID_CODES = {c.strip() for c in os.getenv("REVIEWER_CODES", "ODF-2025,CLIENT-GOLD").split(",") if c.strip()}
-ADMIN_CODES = {c.strip() for c in os.getenv("ADMIN_CODES", "ODF-ADMIN-2025").split(",") if c.strip()}
+VALID_CODES = {
+    c.strip() for c in os.getenv("REVIEWER_CODES", "ODF-2025,CLIENT-GOLD").split(",") if c.strip()
+}
+ADMIN_CODES = {
+    c.strip() for c in os.getenv("ADMIN_CODES", "ODF-ADMIN-2025").split(",") if c.strip()
+}
 
 @app.post("/api/auth/login")
 def login():
@@ -101,8 +112,10 @@ def login():
         return jsonify(success=False, message="Invalid access code"), 401
 
     client_id = (data.get("client_id") or "").strip() or str(uuid.uuid4())
-    token = create_access_token(identity="trusted_client",
-                                additional_claims={"role": role, "cid": client_id})
+    token = create_access_token(
+        identity="trusted_client",
+        additional_claims={"role": role, "cid": client_id}
+    )
     return jsonify(success=True, token=token, client_id=client_id, role=role)
 
 @app.get("/api/reviews")
@@ -113,7 +126,7 @@ def list_reviews():
     role = claims.get("role")
     with engine.begin() as con:
         rows = con.execute(text("""
-            SELECT id, name, rating, text, created_at, owner_cid
+            SELECT id, name, age, rating, text, created_at, owner_cid
             FROM reviews
             ORDER BY created_at DESC
         """)).mappings().all()
@@ -132,24 +145,52 @@ def create_review():
         return jsonify(message="Not allowed"), 403
 
     data = request.get_json(silent=True) or {}
-    name = (data.get("name") or "Anonymous").strip() or "Anonymous"
+
+    # REQUIRE name (no Anonymous)
+    name = (data.get("name") or "").strip()
+    if not name:
+        return jsonify(message="Name is required"), 400
+
     text_body = (data.get("text") or "").strip()
     try:
         rating = int(data.get("rating") or 0)
     except ValueError:
         rating = 0
+
     if not text_body or not (1 <= rating <= 5):
         return jsonify(message="Invalid payload"), 400
+
+    # Optional age (basic validation)
+    age_raw = data.get("age", None)
+    age = None
+    if age_raw is not None and str(age_raw) != "":
+        try:
+            age = int(age_raw)
+        except (TypeError, ValueError):
+            return jsonify(message="Age must be a whole number"), 400
+        if age < 10 or age > 100:
+            return jsonify(message="Age must be between 10 and 100"), 400
 
     rid = str(uuid.uuid4())
     created_at = datetime.utcnow().isoformat() + "Z"
     owner_cid = claims.get("cid")
+
     with engine.begin() as con:
-        con.execute(text("""INSERT INTO reviews (id, name, rating, text, created_at, owner_cid)
-                            VALUES (:id, :n, :r, :t, :c, :o)"""),
-                    {"id": rid, "n": name, "r": rating, "t": text_body, "c": created_at, "o": owner_cid})
-    return jsonify(id=rid, name=name, rating=rating, text=text_body,
-                   created_at=created_at, owner_cid=owner_cid, can_delete=True), 201
+        con.execute(text("""
+            INSERT INTO reviews (id, name, age, rating, text, created_at, owner_cid)
+            VALUES (:id, :n, :a, :r, :t, :c, :o)
+        """), {"id": rid, "n": name, "a": age, "r": rating, "t": text_body, "c": created_at, "o": owner_cid})
+
+    return jsonify(
+        id=rid,
+        name=name,
+        age=age,
+        rating=rating,
+        text=text_body,
+        created_at=created_at,
+        owner_cid=owner_cid,
+        can_delete=True
+    ), 201
 
 @app.delete("/api/reviews/<rid>")
 @jwt_required()
