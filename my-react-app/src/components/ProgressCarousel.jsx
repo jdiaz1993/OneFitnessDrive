@@ -6,6 +6,11 @@ import c3 from '../client3.JPG';
 import c4 from '../client4.JPG';
 import c5 from '../client5.JPG';
 import c6 from '../client6.JPG';
+import c7 from '../client7.JPG';
+import c8 from '../client8.JPG';
+import c9 from '../client9.JPG';
+import c10 from '../client10.JPG';
+
 
 export default function ProgressCarousel({
   mode = 'contain',          // 'contain' | 'cover'
@@ -18,7 +23,7 @@ export default function ProgressCarousel({
   className = '',
   id = 'carouselExampleRide'
 }) {
-  const slides = [c1, c2, c3, c4, c5, c6];
+  const slides = [c1, c2, c3, c4, c5, c6, c7, c8, c9, c10];
   const ref = useRef(null);
 
   // If you already load 'bootstrap.bundle.min.js' globally, you can delete this effect.
